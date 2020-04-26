@@ -18,6 +18,9 @@
 
 #include "arpa/inet.h"
 #include "net/if.h"
+#include "net/if_types.h"
+#include "net/if_arp.h"
+#include "net/if_hwaddr.h"
 #include "sys/socket.h"
 #include "netdb.h"
 
@@ -615,14 +618,47 @@ static ssize_t __ms_esp_at_socket_write(ms_ptr_t ctx, ms_io_file_t *file, ms_con
 /*
  * Control socket device
  */
-static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, void *arg)
+static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, ms_ptr_t arg)
 {
+    struct ifreq *pifreq;
+    espr_t err;
     int ret;
+    int i;
 
-    /*
-     * TODO
-     */
-    ret = 0;
+    switch (cmd) {
+    case SIOCGIFHWADDR:                                                 /*  获得物理地址                */
+        pifreq = (struct ifreq *)arg;
+        pifreq->ifr_hwaddr.sa_len    = 0;
+        pifreq->ifr_hwaddr.sa_family = ARPHRD_ETHER;
+
+        for (i = 0; i < 6; i++) {
+            pifreq->ifr_hwaddr.sa_data[i] = esp.m.sta.mac[i];
+        }
+
+        HALALEN_FROM_SA(&pifreq->ifr_hwaddr) = 6;
+        ret = 0;
+        break;
+
+    case SIOCSIFHWADDR:                                                 /*  设置 mac 地址               */
+        pifreq = (struct ifreq *)arg;
+
+        err = esp_sta_setmac(pifreq->ifr_hwaddr.sa_data, MS_NULL, MS_NULL, MS_TRUE);
+        if (err == espOK) {
+            for (i = 0; i < 6; i++) {
+                esp.m.sta.mac[i] = pifreq->ifr_hwaddr.sa_data[i];
+            }
+            ret = 0;
+        } else {
+            ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+            ret = -1;
+        }
+        break;
+
+    default:
+        ms_thread_set_errno(EOPNOTSUP);
+        ret = -1;
+        break;
+    }
 
     return ret;
 }
@@ -1139,6 +1175,8 @@ ms_err_t ms_esp_at_net_init(void (*init_done_callback)(ms_ptr_t arg), ms_ptr_t a
 
             } else {
                 ms_printk(MS_PK_INFO, "ESP-AT Lib initialized!\n");
+
+                esp_sta_getmac(MS_NULL, MS_NULL, MS_NULL, MS_TRUE);
 
                 if (init_done_callback != MS_NULL) {
                     init_done_callback(arg);
