@@ -631,9 +631,11 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
         pifreq->ifr_hwaddr.sa_len    = 0;
         pifreq->ifr_hwaddr.sa_family = ARPHRD_ETHER;
 
+        esp_core_lock();
         for (i = 0; i < 6; i++) {
-            pifreq->ifr_hwaddr.sa_data[i] = esp.m.sta.mac[i];
+            pifreq->ifr_hwaddr.sa_data[i] = esp.m.sta.mac.mac[i];
         }
+        esp_core_unlock();
 
         HALALEN_FROM_SA(&pifreq->ifr_hwaddr) = 6;
         ret = 0;
@@ -642,11 +644,13 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
     case SIOCSIFHWADDR:                                                 /*  设置 mac 地址               */
         pifreq = (struct ifreq *)arg;
 
-        err = esp_sta_setmac(pifreq->ifr_hwaddr.sa_data, MS_NULL, MS_NULL, MS_TRUE);
+        err = esp_sta_setmac((esp_mac_t *)pifreq->ifr_hwaddr.sa_data, MS_NULL, MS_NULL, MS_TRUE);
         if (err == espOK) {
+            esp_core_lock();
             for (i = 0; i < 6; i++) {
-                esp.m.sta.mac[i] = pifreq->ifr_hwaddr.sa_data[i];
+                esp.m.sta.mac.mac[i] = pifreq->ifr_hwaddr.sa_data[i];
             }
+            esp_core_unlock();
             ret = 0;
         } else {
             ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
@@ -654,8 +658,39 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
         }
         break;
 
+    case SIOCGIFADDR:                                                   /*  获取网卡 IP                 */
+    case SIOCGIFNETMASK:                                                /*  获取网卡 mask               */
+    case SIOCGIFDSTADDR:                                                /*  获取网卡目标地址            */
+    {
+        struct sockaddr_in *psockaddrin;
+        esp_ip_t ip;
+
+        pifreq = (struct ifreq *)arg;
+
+        psockaddrin = (struct sockaddr_in *)&(pifreq->ifr_addr);
+        psockaddrin->sin_len    = sizeof(struct sockaddr_in);
+        psockaddrin->sin_family = AF_INET;
+        psockaddrin->sin_port   = 0;
+
+        if (cmd == SIOCGIFADDR) {                                       /*  获取网卡 IP                 */
+            err = esp_sta_copy_ip(&ip, MS_NULL, MS_NULL, MS_NULL);
+        } else if (cmd == SIOCGIFDSTADDR) {                             /*  获取网卡目标地址            */
+            err = esp_sta_copy_ip(MS_NULL, &ip, MS_NULL, MS_NULL);
+        } else {                                                        /*  获取网卡 mask               */
+            err = esp_sta_copy_ip(MS_NULL, MS_NULL, &ip, MS_NULL);
+        }
+        if (err == espOK) {
+            psockaddrin->sin_addr.s_addr = htonl(LWIP_MAKEU32(ip.ip[0], ip.ip[1], ip.ip[2], ip.ip[3]));
+            ret = 0;
+        } else {
+            ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+            ret = -1;
+        }
+    }
+        break;
+
     default:
-        ms_thread_set_errno(EOPNOTSUP);
+        ms_thread_set_errno(EOPNOTSUPP);
         ret = -1;
         break;
     }
