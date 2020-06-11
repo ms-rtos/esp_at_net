@@ -1,7 +1,7 @@
 
 ## esp-at-lib
 
-ESP8266/ESP32 AT commands parser for RTOS systems.
+ESP-AT Library commands parser is a generic, platform independent, library for communicating with ESP8266 Wi-Fi module using AT commands.
 
 License: MIT license
 
