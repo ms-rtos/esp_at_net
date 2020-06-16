@@ -17,11 +17,11 @@
  * @brief Network.
  */
 
-static ms_handle_t sys_mutex;
+static ms_handle_t ms_esp_lockid;
 
 uint8_t
 esp_sys_init(void) {
-    return esp_sys_mutex_create(&sys_mutex);
+    return esp_sys_mutex_create(&ms_esp_lockid);
 }
 
 uint32_t
@@ -31,12 +31,12 @@ esp_sys_now(void) {
 
 uint8_t
 esp_sys_protect(void) {
-    return ms_mutex_lock(sys_mutex, MS_TIMEOUT_FOREVER) == MS_ERR_NONE;
+    return ms_mutex_lock(ms_esp_lockid, MS_TIMEOUT_FOREVER) == MS_ERR_NONE;
 }
 
 uint8_t
 esp_sys_unprotect(void) {
-    return ms_mutex_unlock(sys_mutex) == MS_ERR_NONE;
+    return ms_mutex_unlock(ms_esp_lockid) == MS_ERR_NONE;
 }
 
 uint8_t
