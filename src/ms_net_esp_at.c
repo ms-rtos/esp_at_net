@@ -626,7 +626,7 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
     int i;
 
     switch (cmd) {
-    case SIOCGIFHWADDR:                                                 /*  获得物理地址                */
+    case SIOCGIFHWADDR:
         pifreq = (struct ifreq *)arg;
         pifreq->ifr_hwaddr.sa_len    = 0;
         pifreq->ifr_hwaddr.sa_family = ARPHRD_ETHER;
@@ -641,7 +641,7 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
         ret = 0;
         break;
 
-    case SIOCSIFHWADDR:                                                 /*  设置 mac 地址               */
+    case SIOCSIFHWADDR:
         pifreq = (struct ifreq *)arg;
 
         err = esp_sta_setmac((esp_mac_t *)pifreq->ifr_hwaddr.sa_data, MS_NULL, MS_NULL, MS_TRUE);
@@ -658,9 +658,9 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
         }
         break;
 
-    case SIOCGIFADDR:                                                   /*  获取网卡 IP                 */
-    case SIOCGIFNETMASK:                                                /*  获取网卡 mask               */
-    case SIOCGIFDSTADDR:                                                /*  获取网卡目标地址            */
+    case SIOCGIFADDR:
+    case SIOCGIFNETMASK:
+    case SIOCGIFDSTADDR:
     {
         struct sockaddr_in *psockaddrin;
         esp_ip_t ip;
@@ -672,11 +672,11 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
         psockaddrin->sin_family = AF_INET;
         psockaddrin->sin_port   = 0;
 
-        if (cmd == SIOCGIFADDR) {                                       /*  获取网卡 IP                 */
+        if (cmd == SIOCGIFADDR) {
             err = esp_sta_copy_ip(&ip, MS_NULL, MS_NULL, MS_NULL);
-        } else if (cmd == SIOCGIFDSTADDR) {                             /*  获取网卡目标地址            */
+        } else if (cmd == SIOCGIFDSTADDR) {
             err = esp_sta_copy_ip(MS_NULL, &ip, MS_NULL, MS_NULL);
-        } else {                                                        /*  获取网卡 mask               */
+        } else {
             err = esp_sta_copy_ip(MS_NULL, MS_NULL, &ip, MS_NULL);
         }
         if (err == espOK) {
