@@ -1183,10 +1183,10 @@ ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap
 }
 
 /**
- * @brief Initial ESP AT network component.
+ * @brief Initialize ESP AT network component.
  *
- * @param[in] init_done_callback Pointer to ESP AT network initial done call back function
- * @param[in] arg Argument of init_done_callback
+ * @param[in] init_done_callback    Pointer to ESP AT network initialize done call back function
+ * @param[in] arg                   The argument of init_done_callback
  *
  * @return Error number
  */

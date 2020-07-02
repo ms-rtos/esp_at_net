@@ -19,10 +19,6 @@ extern "C" {
 
 #ifdef __MS_KERNEL_SPACE
 
-/*
- * ESP will try to scan for access points
- * and then compare them with the one on the list below
- */
 typedef struct {
     const char *ssid;
     const char *pass;
@@ -34,6 +30,14 @@ ms_err_t ms_esp_at_smart_config(ms_uint32_t times, ms_esp_at_net_ap_t *ap);
 
 ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap_list, ms_uint32_t n_ap, ms_esp_at_net_ap_t *ap);
 
+/**
+ * @brief Initialize ESP AT network component.
+ *
+ * @param[in] init_done_callback    Pointer to ESP AT network initialize done call back function
+ * @param[in] arg                   The argument of init_done_callback
+ *
+ * @return Error number
+ */
 ms_err_t ms_esp_at_net_init(void (*init_done_callback)(ms_ptr_t arg), ms_ptr_t arg);
 
 #endif
