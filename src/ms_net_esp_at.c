@@ -499,6 +499,11 @@ static ssize_t __ms_esp_at_sendto(esp_netconn_p conn, const void *dataptr, size_
                 ms_net_ip_addr_set_any(MS_FALSE, &remote_addr);
             }
 
+            if (!esp_conn_is_active(conn->conn)) {
+                esp_netconn_connect_ex(conn, "255.255.255.255", conn->listen_port,
+                                       MS_FALSE, MS_NULL, conn->listen_port, 0);
+            }
+
             err = esp_netconn_sendto(conn, (const esp_ip_t*)&remote_addr, remote_port,
                                      dataptr, size);
         }
@@ -950,19 +955,29 @@ static espr_t __ms_esp_at_callback_func(esp_evt_t *evt)
             esp_sw_version_t v_curr;
 
             esp_get_current_at_fw_version(&v_curr);
-            ms_printk(MS_PK_INFO, "Current AT version is: %d.%d.%d\n", (int)v_curr.major, (int)v_curr.minor, (int)v_curr.patch);
+            ms_printk(MS_PK_INFO, "ESP8266: AT version is: %d.%d.%d\n", (int)v_curr.major, (int)v_curr.minor, (int)v_curr.patch);
             break;
         }
 
-        case ESP_EVT_INIT_FINISH: {
-            ms_printk(MS_PK_INFO, "Library initialized!\n");
+        case ESP_EVT_INIT_FINISH:
+            ms_printk(MS_PK_INFO, "ESP8266: library initialized!\n");
             break;
-        }
 
-        case ESP_EVT_RESET_DETECTED: {
-            ms_printk(MS_PK_INFO, "Device reset detected!\n");
+        case ESP_EVT_RESET_DETECTED:
+            ms_printk(MS_PK_INFO, "ESP8266: reset detected!\n");
             break;
-        }
+
+        case ESP_EVT_WIFI_DISCONNECTED:
+            ms_printk(MS_PK_INFO, "ESP8266: AP disconnected!\n");
+            break;
+
+        case ESP_EVT_WIFI_CONNECTED:
+            ms_printk(MS_PK_INFO, "ESP8266: AP connected!\n");
+            break;
+
+        case ESP_EVT_WIFI_GOT_IP:
+            ms_printk(MS_PK_INFO, "ESP8266: Got IP!\n");
+            break;
 
         default:
             break;
