@@ -726,6 +726,15 @@ static int __ms_esp_at_socket_fcntl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, i
  */
 static ms_bool_t __ms_esp_at_socket_readable_check(ms_ptr_t ctx)
 {
+    esp_netconn_p conn = ctx;
+
+    if (conn->type == ESP_NETCONN_TYPE_UDP) {
+        if (!esp_conn_is_active(conn->conn)) {
+            esp_netconn_connect_ex(conn, "255.255.255.255", conn->listen_port,
+                                   MS_FALSE, MS_NULL, conn->listen_port, 0);
+        }
+    }
+
     return esp_msrtos_netconn_readable_check((esp_netconn_p)ctx);
 }
 
@@ -951,36 +960,36 @@ static ms_net_impl_t ms_esp_at_net_impl = {
 static espr_t __ms_esp_at_callback_func(esp_evt_t *evt)
 {
     switch (esp_evt_get_type(evt)) {
-        case ESP_EVT_AT_VERSION_NOT_SUPPORTED: {
-            esp_sw_version_t v_curr;
+    case ESP_EVT_AT_VERSION_NOT_SUPPORTED: {
+        esp_sw_version_t v_curr;
 
-            esp_get_current_at_fw_version(&v_curr);
-            ms_printk(MS_PK_INFO, "ESP8266: AT version is: %d.%d.%d\n", (int)v_curr.major, (int)v_curr.minor, (int)v_curr.patch);
-            break;
-        }
+        esp_get_current_at_fw_version(&v_curr);
+        ms_printk(MS_PK_INFO, "ESP8266: AT version is: %d.%d.%d\n", (int)v_curr.major, (int)v_curr.minor, (int)v_curr.patch);
+        break;
+    }
 
-        case ESP_EVT_INIT_FINISH:
-            ms_printk(MS_PK_INFO, "ESP8266: library initialized!\n");
-            break;
+    case ESP_EVT_INIT_FINISH:
+        ms_printk(MS_PK_INFO, "ESP8266: library initialized!\n");
+        break;
 
-        case ESP_EVT_RESET_DETECTED:
-            ms_printk(MS_PK_INFO, "ESP8266: reset detected!\n");
-            break;
+    case ESP_EVT_RESET_DETECTED:
+        ms_printk(MS_PK_INFO, "ESP8266: reset detected!\n");
+        break;
 
-        case ESP_EVT_WIFI_DISCONNECTED:
-            ms_printk(MS_PK_INFO, "ESP8266: AP disconnected!\n");
-            break;
+    case ESP_EVT_WIFI_DISCONNECTED:
+        ms_printk(MS_PK_INFO, "ESP8266: AP disconnected!\n");
+        break;
 
-        case ESP_EVT_WIFI_CONNECTED:
-            ms_printk(MS_PK_INFO, "ESP8266: AP connected!\n");
-            break;
+    case ESP_EVT_WIFI_CONNECTED:
+        ms_printk(MS_PK_INFO, "ESP8266: AP connected!\n");
+        break;
 
-        case ESP_EVT_WIFI_GOT_IP:
-            ms_printk(MS_PK_INFO, "ESP8266: Got IP!\n");
-            break;
+    case ESP_EVT_WIFI_GOT_IP:
+        ms_printk(MS_PK_INFO, "ESP8266: Got IP!\n");
+        break;
 
-        default:
-            break;
+    default:
+        break;
     }
 
     return espOK;
