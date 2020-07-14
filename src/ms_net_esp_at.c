@@ -130,6 +130,16 @@ static int __ms_esp_at_err_to_errno(espr_t err)
     return ret;
 }
 
+static void __ms_esp_at_udp_ensure_bind(esp_netconn_p conn)
+{
+    if (conn->type == ESP_NETCONN_TYPE_UDP) {
+        if (!esp_conn_is_active(conn->conn)) {
+            esp_netconn_connect_ex(conn, "255.255.255.255", conn->listen_port,
+                                   MS_FALSE, MS_NULL, conn->listen_port, 0);
+        }
+    }
+}
+
 static int __ms_esp_at_bind(esp_netconn_p conn, const struct sockaddr *name, socklen_t namelen)
 {
     int ret = -1;
@@ -186,7 +196,7 @@ static int __ms_esp_at_getpeername(esp_netconn_p conn, struct sockaddr *name, so
                 if (*namelen > saddr.sa.sa_len) {
                     *namelen = saddr.sa.sa_len;
                 }
-                MEMCPY(name, &saddr, *namelen);
+                ESP_MEMCPY(name, &saddr, *namelen);
 
                 ret = 0;
             } else {
@@ -214,16 +224,13 @@ static int __ms_esp_at_getsockname(esp_netconn_p conn, struct sockaddr *name, so
 
             esp_sta_copy_ip(&ip, MS_NULL, MS_NULL, MS_NULL);
             ms_net_ip_addr4(&local_ip,
-                            ip.ip[0],
-                            ip.ip[1],
-                            ip.ip[2],
-                            ip.ip[3]);
+                            ip.ip[0], ip.ip[1], ip.ip[2], ip.ip[3]);
 
             ms_net_ipaddr_port_to_sockaddr(&saddr, &local_ip, conn->conn->local_port);
             if (*namelen > saddr.sa.sa_len) {
                 *namelen = saddr.sa.sa_len;
             }
-            MEMCPY(name, &saddr, *namelen);
+            ESP_MEMCPY(name, &saddr, *namelen);
 
             ret = 0;
         } else {
@@ -366,12 +373,7 @@ static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t si
     espr_t err;
     ssize_t ret;
 
-    if (conn->type == ESP_NETCONN_TYPE_UDP) {
-        if (!esp_conn_is_active(conn->conn)) {
-            esp_netconn_connect_ex(conn, "255.255.255.255", conn->listen_port,
-                                   MS_FALSE, MS_NULL, conn->listen_port, 0);
-        }
-    }
+    __ms_esp_at_udp_ensure_bind(conn);
 
     err = esp_netconn_receive(conn, &pbuf);
     if (err == espOK) {
@@ -382,16 +384,13 @@ static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t si
             ip_addr_t remote_ip;
 
             ms_net_ip_addr4(&remote_ip,
-                            pbuf->ip.ip[0],
-                            pbuf->ip.ip[1],
-                            pbuf->ip.ip[2],
-                            pbuf->ip.ip[3]);
+                            pbuf->ip.ip[0], pbuf->ip.ip[1], pbuf->ip.ip[2], pbuf->ip.ip[3]);
 
             ms_net_ipaddr_port_to_sockaddr(&saddr, &remote_ip, pbuf->port);
             if (*fromlen > saddr.sa.sa_len) {
                 *fromlen = saddr.sa.sa_len;
             }
-            MEMCPY(from, &saddr, *fromlen);
+            ESP_MEMCPY(from, &saddr, *fromlen);
         }
 
         esp_pbuf_free(pbuf);
@@ -488,8 +487,8 @@ static ssize_t __ms_esp_at_sendto(esp_netconn_p conn, const void *dataptr, size_
 
             LWIP_ERROR("__ms_esp_at_sendto: invalid address", (((to == MS_NULL) && (tolen == 0)) ||
                        (IS_SOCK_ADDR_LEN_VALID(tolen) &&
-                        ((to != MS_NULL) && (IS_SOCK_ADDR_TYPE_VALID(to) && IS_SOCK_ADDR_ALIGNED(to))))),
-                        ms_thread_set_errno(EIO); return -1;);
+                       ((to != MS_NULL) && (IS_SOCK_ADDR_TYPE_VALID(to) && IS_SOCK_ADDR_ALIGNED(to))))),
+                       ms_thread_set_errno(EIO); return -1;);
             LWIP_UNUSED_ARG(tolen);
 
             if (to != MS_NULL) {
@@ -499,10 +498,7 @@ static ssize_t __ms_esp_at_sendto(esp_netconn_p conn, const void *dataptr, size_
                 ms_net_ip_addr_set_any(MS_FALSE, &remote_addr);
             }
 
-            if (!esp_conn_is_active(conn->conn)) {
-                esp_netconn_connect_ex(conn, "255.255.255.255", conn->listen_port,
-                                       MS_FALSE, MS_NULL, conn->listen_port, 0);
-            }
+            __ms_esp_at_udp_ensure_bind(conn);
 
             err = esp_netconn_sendto(conn, (const esp_ip_t*)&remote_addr, remote_port,
                                      dataptr, size);
@@ -655,8 +651,7 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
 
     case SIOCGIFADDR:
     case SIOCGIFNETMASK:
-    case SIOCGIFDSTADDR:
-    {
+    case SIOCGIFDSTADDR: {
         struct sockaddr_in *psockaddrin;
         esp_ip_t ip;
 
@@ -682,6 +677,60 @@ static int __ms_esp_at_socket_ioctl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, m
             ret = -1;
         }
     }
+        break;
+
+    case SIOCGIFFLAGS: {
+        ms_uint32_t flags = IFF_UP | IFF_BROADCAST;
+
+        pifreq = (struct ifreq *)arg;
+
+        if (esp_sta_is_joined()) {
+            flags |= IFF_RUNNING;
+        }
+        pifreq->ifr_flags = flags;
+        ret = 0;
+    }
+        break;
+
+    case SIOCSIFFLAGS:
+        pifreq = (struct ifreq *)arg;
+
+        if (pifreq->ifr_flags & IFF_UP) {
+            err = esp_sta_autojoin(MS_TRUE, MS_NULL, MS_NULL, MS_TRUE);
+        } else {
+            err = esp_sta_quit(MS_NULL, MS_NULL, MS_TRUE);
+        }
+        if (err == espOK) {
+            ret = 0;
+        } else {
+            ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+            ret = -1;
+        }
+        break;
+
+    case SIOCSIFPFLAGS:
+        pifreq = (struct ifreq *)arg;
+
+        if (pifreq->ifr_flags > 0) {
+            if (esp_sta_is_joined()) {
+                esp_sta_quit(MS_NULL, MS_NULL, MS_TRUE);
+
+                while (esp_sta_is_joined()) {
+                    ms_thread_sleep_ms(100);
+                }
+            }
+
+            err = esp_smart_configure(MS_TRUE, MS_NULL, MS_NULL, MS_TRUE);
+        } else {
+            err = esp_smart_configure(MS_FALSE, MS_NULL, MS_NULL, MS_TRUE);
+        }
+
+        if (err == espOK) {
+            ret = 0;
+        } else {
+            ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+            ret = -1;
+        }
         break;
 
     default:
@@ -716,14 +765,7 @@ static int __ms_esp_at_socket_fcntl(ms_ptr_t ctx, ms_io_file_t *file, int cmd, i
  */
 static ms_bool_t __ms_esp_at_socket_readable_check(ms_ptr_t ctx)
 {
-    esp_netconn_p conn = ctx;
-
-    if (conn->type == ESP_NETCONN_TYPE_UDP) {
-        if (!esp_conn_is_active(conn->conn)) {
-            esp_netconn_connect_ex(conn, "255.255.255.255", conn->listen_port,
-                                   MS_FALSE, MS_NULL, conn->listen_port, 0);
-        }
-    }
+    __ms_esp_at_udp_ensure_bind(ctx);
 
     return esp_msrtos_netconn_readable_check((esp_netconn_p)ctx);
 }
@@ -800,10 +842,6 @@ static int __ms_esp_at_socket(int domain, int type, int protocol)
     LWIP_UNUSED_ARG(domain);
     LWIP_UNUSED_ARG(protocol);
 
-    while (!esp_sta_is_joined()) {
-        ms_thread_sleep_s(1);
-    }
-
     /* create a netconn */
     switch (type) {
 
@@ -870,7 +908,7 @@ static int __ms_esp_at_accept(esp_netconn_p conn, ms_io_file_t *file, struct soc
                         if (*addrlen > tempaddr.sa.sa_len) {
                             *addrlen = tempaddr.sa.sa_len;
                         }
-                        MEMCPY(addr, &tempaddr, *addrlen);
+                        ESP_MEMCPY(addr, &tempaddr, *addrlen);
                     }
                 }
             } else {
@@ -922,11 +960,7 @@ static int __ms_esp_at_gethostbyname_addrtype(const char *name, ip_addr_t *addr,
     int ret;
 
     if (esp_dns_gethostbyname(name, &ip, MS_NULL, MS_NULL, MS_TRUE) == espOK) {
-        ms_net_ip_addr4(addr,
-                        ip.ip[0],
-                        ip.ip[1],
-                        ip.ip[2],
-                        ip.ip[3]);
+        ms_net_ip_addr4(addr, ip.ip[0], ip.ip[1], ip.ip[2], ip.ip[3]);
         ret = ERR_OK;
     } else {
         ret = ERR_VAL;
@@ -950,11 +984,7 @@ static int __ms_esp_at_getdnsserver(ms_uint8_t numdns, ip_addr_t *dnsserver)
                                  (numdns == 1) ? &ip : MS_NULL,
                                  MS_NULL, MS_NULL, MS_TRUE);
         if (err == espOK) {
-            ms_net_ip_addr4(dnsserver,
-                            ip.ip[0],
-                            ip.ip[1],
-                            ip.ip[2],
-                            ip.ip[3]);
+            ms_net_ip_addr4(dnsserver, ip.ip[0], ip.ip[1], ip.ip[2], ip.ip[3]);
             ret = 0;
         } else {
             ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
@@ -1036,10 +1066,11 @@ static espr_t __ms_esp_at_callback_func(esp_evt_t *evt)
 {
     switch (esp_evt_get_type(evt)) {
     case ESP_EVT_AT_VERSION_NOT_SUPPORTED: {
-        esp_sw_version_t v_curr;
+        esp_sw_version_t version;
 
-        esp_get_current_at_fw_version(&v_curr);
-        ms_printk(MS_PK_INFO, "ESP8266: AT version is: %d.%d.%d\n", (int)v_curr.major, (int)v_curr.minor, (int)v_curr.patch);
+        esp_get_current_at_fw_version(&version);
+        ms_printk(MS_PK_INFO, "ESP8266: AT version is: %d.%d.%d\n",
+                  (int)version.major, (int)version.minor, (int)version.patch);
         break;
     }
 
@@ -1077,7 +1108,7 @@ ms_err_t ms_esp_at_auto_join(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
     }
 
     while (times > 0U) {
-        ms_printk(MS_PK_INFO, "Wait auto join...\n");
+        ms_printk(MS_PK_INFO, "ESP8266: Wait auto join...\n");
 
         if (esp_sta_is_joined()) {
             esp_ip_t ip;
@@ -1088,9 +1119,9 @@ ms_err_t ms_esp_at_auto_join(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
 
             esp_sta_get_ap_info(&ap_info, MS_NULL, MS_NULL, MS_TRUE);
 
-            ms_printk(MS_PK_INFO, "Connected to %s network!\n", ap_info.ssid);
+            ms_printk(MS_PK_INFO, "ESP8266: Connected to %s network!\n", ap_info.ssid);
 
-            ms_printk(MS_PK_INFO, "Station IP address: %d.%d.%d.%d; Is DHCP: %d\n",
+            ms_printk(MS_PK_INFO, "ESP8266: Station IP address: %d.%d.%d.%d; Is DHCP: %d\n",
                       (int)ip.ip[0], (int)ip.ip[1], (int)ip.ip[2], (int)ip.ip[3], (int)is_dhcp);
 
             if (ap != MS_NULL) {
@@ -1105,7 +1136,7 @@ ms_err_t ms_esp_at_auto_join(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
         times--;
     }
 
-    ms_printk(MS_PK_ERR, "Auto join failed!\n");
+    ms_printk(MS_PK_ERR, "ESP8266: Auto join failed!\n");
 
     return MS_ERR;
 }
@@ -1125,12 +1156,12 @@ ms_err_t ms_esp_at_smart_config(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
     }
 
     while (times > 0U) {
-        ms_printk(MS_PK_INFO, "Smart configure...\n");
+        ms_printk(MS_PK_INFO, "ESP8266: Smart configure...\n");
 
         if (esp_smart_configure(MS_TRUE, MS_NULL, MS_NULL, MS_TRUE) == espOK) {
 
             while (!esp_sta_is_joined() && (times > 0U)) {
-                ms_printk(MS_PK_INFO, "Wait smart configure...\n");
+                ms_printk(MS_PK_INFO, "ESP8266: Wait smart configure...\n");
                 ms_thread_sleep_s(2);
                 times--;
             }
@@ -1144,16 +1175,13 @@ ms_err_t ms_esp_at_smart_config(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
 
                 esp_sta_get_ap_info(&ap_info, MS_NULL, MS_NULL, MS_TRUE);
 
-                ms_printk(MS_PK_INFO, "Connected to %s network!\n", ap_info.ssid);
+                ms_printk(MS_PK_INFO, "ESP8266: Connected to %s network!\n", ap_info.ssid);
 
-                ms_printk(MS_PK_INFO, "Station IP address: %d.%d.%d.%d; Is DHCP: %d\n",
+                ms_printk(MS_PK_INFO, "ESP8266: Station IP address: %d.%d.%d.%d; Is DHCP: %d\n",
                           (int)ip.ip[0], (int)ip.ip[1], (int)ip.ip[2], (int)ip.ip[3], (int)is_dhcp);
 
                 esp_smart_configure(MS_FALSE, MS_NULL, MS_NULL, MS_TRUE);
 
-                /*
-                 * Auto join enable
-                 */
                 esp_sta_autojoin(MS_TRUE, MS_NULL, MS_NULL, MS_TRUE);
 
                 if (ap != MS_NULL) {
@@ -1167,7 +1195,7 @@ ms_err_t ms_esp_at_smart_config(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
             }
 
         } else {
-            ms_printk(MS_PK_ERR, "Error on WIFI smart configure!\n");
+            ms_printk(MS_PK_ERR, "ESP8266: Error on WIFI smart configure!\n");
         }
 
         times--;
@@ -1175,7 +1203,7 @@ ms_err_t ms_esp_at_smart_config(ms_uint32_t times, ms_esp_at_net_ap_t *ap)
 
     esp_smart_configure(MS_FALSE, MS_NULL, MS_NULL, MS_TRUE);
 
-    ms_printk(MS_PK_ERR, "Smart configure failed!\n");
+    ms_printk(MS_PK_ERR, "ESP8266: Smart configure failed!\n");
 
     return MS_ERR;
 }
@@ -1208,7 +1236,7 @@ ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap
         /*
          * Scan for access points visible to ESP device
          */
-        ms_printk(MS_PK_INFO, "Scanning access points...\n");
+        ms_printk(MS_PK_INFO, "ESP8266: Scanning access points...\n");
 
         if ((eres = esp_sta_list_ap(MS_NULL, aps, ESP_ARRAYSIZE(aps), &apf, MS_NULL, MS_NULL, MS_TRUE)) == espOK) {
             ms_size_t i, j;
@@ -1219,7 +1247,7 @@ ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap
              * Print all access points found by ESP
              */
             for (i = 0; i < apf; i++) {
-                ms_printk(MS_PK_INFO, "AP found: %s, CH: %d, RSSI: %d\n", aps[i].ssid, aps[i].ch, aps[i].rssi);
+                ms_printk(MS_PK_INFO, "ESP8266: AP found: %s, CH: %d, RSSI: %d\n", aps[i].ssid, aps[i].ch, aps[i].rssi);
             }
 
             /*
@@ -1229,7 +1257,7 @@ ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap
                 for (i = 0; i < apf; i++) {
                     if (!strcmp(aps[i].ssid, ap_list[j].ssid)) {
                         tried = MS_TRUE;
-                        ms_printk(MS_PK_INFO, "Connecting to \"%s\" network...\n", ap_list[j].ssid);
+                        ms_printk(MS_PK_INFO, "ESP8266: Connecting to \"%s\" network...\n", ap_list[j].ssid);
 
                         /*
                          * Try to join to access point
@@ -1240,8 +1268,8 @@ ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap
 
                             esp_sta_copy_ip(&ip, MS_NULL, MS_NULL, &is_dhcp);
 
-                            ms_printk(MS_PK_INFO, "Connected to %s network!\n", ap_list[j].ssid);
-                            ms_printk(MS_PK_INFO, "Station IP address: %d.%d.%d.%d; Is DHCP: %d\n",
+                            ms_printk(MS_PK_INFO, "ESP8266: Connected to %s network!\n", ap_list[j].ssid);
+                            ms_printk(MS_PK_INFO, "ESP8266: Station IP address: %d.%d.%d.%d; Is DHCP: %d\n",
                                       (int)ip.ip[0], (int)ip.ip[1], (int)ip.ip[2], (int)ip.ip[3], (int)is_dhcp);
 
                             /*
@@ -1257,22 +1285,22 @@ ms_err_t ms_esp_at_connect_to_ap(ms_uint32_t times, const ms_esp_at_net_ap_t *ap
                             return MS_ERR_NONE;
 
                         } else {
-                            ms_printk(MS_PK_ERR, "Connection error: %d\n", (int)eres);
+                            ms_printk(MS_PK_ERR, "ESP8266: Connection error: %d\n", (int)eres);
                         }
                     }
                 }
             }
 
             if (!tried) {
-                ms_printk(MS_PK_ERR, "No access points available with preferred SSID!\n");
+                ms_printk(MS_PK_ERR, "ESP8266: No access points available with preferred SSID!\n");
             }
 
         } else if (eres == espERRNODEVICE) {
-            ms_printk(MS_PK_ERR, "Device is not present!\n");
+            ms_printk(MS_PK_ERR, "ESP8266: Device is not present!\n");
             break;
 
         } else {
-            ms_printk(MS_PK_ERR, "Error on WIFI scan procedure!\n");
+            ms_printk(MS_PK_ERR, "ESP8266: Error on WIFI scan procedure!\n");
         }
 
         times--;
@@ -1301,14 +1329,14 @@ ms_err_t ms_esp_at_net_init(void (*init_done_callback)(ms_ptr_t arg), ms_ptr_t a
             /*
              * Initialize ESP with default callback function
              */
-            ms_printk(MS_PK_INFO, "Initializing ESP-AT Lib\n");
+            ms_printk(MS_PK_INFO, "ESP8266: Initializing ESP-AT Lib\n");
 
             if (esp_init(__ms_esp_at_callback_func, MS_TRUE) != espOK) {
-                ms_printk(MS_PK_ERR, "Cannot initialize ESP-AT Lib!\n");
+                ms_printk(MS_PK_ERR, "ESP8266: Cannot initialize ESP-AT Lib!\n");
                 err = MS_ERR;
 
             } else {
-                ms_printk(MS_PK_INFO, "ESP-AT Lib initialized!\n");
+                ms_printk(MS_PK_INFO, "ESP8266: ESP-AT Lib initialized!\n");
 
                 esp_sta_getmac(MS_NULL, MS_NULL, MS_NULL, MS_TRUE);
 
