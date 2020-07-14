@@ -444,6 +444,15 @@ static ssize_t __ms_esp_at_recvmsg(esp_netconn_p conn, struct msghdr *message, i
     return -1;
 }
 
+static ssize_t __ms_esp_at_sendmsg(esp_netconn_p conn, const struct msghdr *message, int flags)
+{
+    /*
+     * TODO
+     */
+    ms_thread_set_errno(ENOTSUP);
+    return -1;
+}
+
 static ssize_t __ms_esp_at_send(esp_netconn_p conn, const void *dataptr, size_t size, int flags)
 {
     ssize_t ret;
@@ -457,15 +466,6 @@ static ssize_t __ms_esp_at_send(esp_netconn_p conn, const void *dataptr, size_t 
     }
 
     return ret;
-}
-
-static ssize_t __ms_esp_at_sendmsg(esp_netconn_p conn, const struct msghdr *message, int flags)
-{
-    /*
-     * TODO
-     */
-    ms_thread_set_errno(ENOTSUP);
-    return -1;
 }
 
 static ssize_t __ms_esp_at_sendto(esp_netconn_p conn, const void *dataptr, size_t size, int flags,
@@ -539,16 +539,6 @@ static char *__ms_esp_at_if_indextoname(unsigned int ifindex, char *ifname)
 static unsigned int __ms_esp_at_if_nametoindex(const char *ifname)
 {
     return 0U;
-}
-
-static int __ms_esp_at_gethostbyname_addrtype(const char *name, ip_addr_t *addr, ms_uint8_t dns_addrtype)
-{
-    /*
-     * TODO
-     */
-    ms_thread_set_errno(ENOTSUP);
-
-    return ERR_VAL;
 }
 
 /*
@@ -926,6 +916,89 @@ static int __ms_esp_at_sethostname(const char *name, size_t len)
     return ret;
 }
 
+static int __ms_esp_at_gethostbyname_addrtype(const char *name, ip_addr_t *addr, ms_uint8_t dns_addrtype)
+{
+    esp_ip_t ip;
+    int ret;
+
+    if (esp_dns_gethostbyname(name, &ip, MS_NULL, MS_NULL, MS_TRUE) == espOK) {
+        ms_net_ip_addr4(addr,
+                        ip.ip[0],
+                        ip.ip[1],
+                        ip.ip[2],
+                        ip.ip[3]);
+        ret = ERR_OK;
+    } else {
+        ret = ERR_VAL;
+    }
+
+    return ret;
+}
+
+/*
+ * Get dns server
+ */
+static int __ms_esp_at_getdnsserver(ms_uint8_t numdns, ip_addr_t *dnsserver)
+{
+    int ret;
+
+    if (numdns < 2) {
+        espr_t err;
+        esp_ip_t ip;
+
+        err = esp_dns_get_config((numdns == 0) ? &ip : MS_NULL,
+                                 (numdns == 1) ? &ip : MS_NULL,
+                                 MS_NULL, MS_NULL, MS_TRUE);
+        if (err == espOK) {
+            ms_net_ip_addr4(dnsserver,
+                            ip.ip[0],
+                            ip.ip[1],
+                            ip.ip[2],
+                            ip.ip[3]);
+            ret = 0;
+        } else {
+            ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+            ret = -1;
+        }
+    } else {
+        ms_thread_set_errno(EINVAL);
+        ret = -1;
+    }
+
+    return ret;
+}
+
+/*
+ * Set dns server
+ */
+static int __ms_esp_at_setdnsserver(ms_uint8_t numdns, const ip_addr_t *dnsserver)
+{
+    int ret;
+
+    if (numdns < 2) {
+        espr_t err;
+        char ip_str[IP4ADDR_STRLEN_MAX];
+
+        inet_ntoa_r(dnsserver, ip_str, IP4ADDR_STRLEN_MAX);
+
+        err = esp_dns_set_config(MS_TRUE,
+                                 (numdns == 0) ? ip_str : MS_NULL,
+                                 (numdns == 1) ? ip_str : MS_NULL,
+                                 MS_NULL, MS_NULL, MS_TRUE);
+        if (err == espOK) {
+            ret = 0;
+        } else {
+            ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+            ret = -1;
+        }
+    } else {
+        ms_thread_set_errno(EINVAL);
+        ret = -1;
+    }
+
+    return ret;
+}
+
 static ms_net_impl_ops_t ms_esp_at_net_impl_ops = {
         .socket                 = (ms_net_socket_func_t)__ms_esp_at_socket,
         .accept                 = (ms_net_accept_func_t)__ms_esp_at_accept,
@@ -948,6 +1021,8 @@ static ms_net_impl_ops_t ms_esp_at_net_impl_ops = {
         .gethostbyname_addrtype = (ms_net_gethostbyname_addrtype_func_t)__ms_esp_at_gethostbyname_addrtype,
         .gethostname            = (ms_net_gethostname_func_t)__ms_esp_at_gethostname,
         .sethostname            = (ms_net_sethostname_func_t)__ms_esp_at_sethostname,
+        .getdnsserver           = (ms_net_getdnsserver_func_t)__ms_esp_at_getdnsserver,
+        .setdnsserver           = (ms_net_setdnsserver_func_t)__ms_esp_at_setdnsserver,
 };
 
 static ms_net_impl_t ms_esp_at_net_impl = {
