@@ -6,7 +6,7 @@
  *
  * File: ms_net_esp_at_porting.c ESP8266/32 AT network porting.
  *
- * Author: Jiao.jinxing <jiaojixing@acoinfo.com>
+ * Author: Jiao.jinxing <jiaojinxing@acoinfo.com>
  *
  */
 

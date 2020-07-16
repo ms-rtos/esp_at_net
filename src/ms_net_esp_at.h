@@ -6,7 +6,7 @@
  *
  * File: ms_net_esp_at.h ESP8266/32 AT network implement.
  *
- * Author: Jiao.jinxing <jiaojixing@acoinfo.com>
+ * Author: Jiao.jinxing <jiaojinxing@acoinfo.com>
  *
  */
 

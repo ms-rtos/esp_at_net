@@ -6,7 +6,7 @@
  *
  * File: ms_net_esp_at_cfg.h ESP8266/32 AT network configuration.
  *
- * Author: Jiao.jinxing <jiaojixing@acoinfo.com>
+ * Author: Jiao.jinxing <jiaojinxing@acoinfo.com>
  *
  */
 
