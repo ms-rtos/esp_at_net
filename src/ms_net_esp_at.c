@@ -544,12 +544,13 @@ static int __ms_esp_at_socket_open(ms_ptr_t ctx, ms_io_file_t *file, int oflag, 
 {
     int ret;
 
-    if (ms_atomic_inc(MS_IO_DEV_REF(file)) == 2) {
+    if (ms_atomic_inc(MS_IO_DEV_REF(file)) == 1) {
         ms_io_device_t *dev = MS_IO_FILE_TO_DEV(file);
         ms_net_socket_device_t *sock_dev = MS_CONTAINER_OF(dev, ms_net_socket_device_t, dev);
 
-        file->type |= MS_IO_FILE_TYPE_SOCK;
         ret = esp_msrtos_netconn_ctx_set((esp_netconn_p)ctx, sock_dev);
+
+        file->type |= MS_IO_FILE_TYPE_SOCK;
 
     } else {
         ms_atomic_dec(MS_IO_DEV_REF(file));
@@ -867,7 +868,7 @@ static int __ms_esp_at_socket(int domain, int type, int protocol)
         return -1;
     }
 
-    fd = ms_net_socket_attach(MS_ESP_AT_SOCKET_DRV_NAME, conn);
+    fd = ms_net_socket_attach(MS_ESP_AT_NET_IMPL_NAME, conn);
     if (fd < 0) {
         esp_netconn_delete(conn);
     }
@@ -885,7 +886,7 @@ static int __ms_esp_at_accept(esp_netconn_p conn, ms_io_file_t *file, struct soc
             esp_netconn_p new_conn;
             espr_t err = esp_netconn_accept(conn, &new_conn);
             if (err == espOK) {
-                accept_fd = ms_net_socket_attach(MS_ESP_AT_SOCKET_DRV_NAME, new_conn);
+                accept_fd = ms_net_socket_attach(MS_ESP_AT_NET_IMPL_NAME, new_conn);
                 if (accept_fd < 0) {
                     (void)esp_netconn_close(new_conn);
                     (void)esp_netconn_delete(new_conn);
@@ -1030,6 +1031,7 @@ static int __ms_esp_at_setdnsserver(ms_uint8_t numdns, const ip_addr_t *dnsserve
 }
 
 static ms_net_impl_ops_t ms_esp_at_net_impl_ops = {
+        .sock_drv_name          = MS_ESP_AT_SOCKET_DRV_NAME,
         .socket                 = (ms_net_socket_func_t)__ms_esp_at_socket,
         .accept                 = (ms_net_accept_func_t)__ms_esp_at_accept,
         .bind                   = (ms_net_bind_func_t)__ms_esp_at_bind,
