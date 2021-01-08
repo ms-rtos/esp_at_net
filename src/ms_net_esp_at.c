@@ -794,7 +794,7 @@ int ms_esp_at_socket_poll_notify(ms_ptr_t ctx, ms_pollevent_t event)
 {
     ms_net_socket_device_t *sock_dev = (ms_net_socket_device_t *)ctx;
 
-    return ms_io_poll_notify_heaper(sock_dev->slots, MS_ARRAY_SIZE(sock_dev->slots), event);
+    return ms_io_poll_notify_helper(sock_dev->slots, MS_ARRAY_SIZE(sock_dev->slots), event);
 }
 
 /*
@@ -805,7 +805,7 @@ static int __ms_esp_at_socket_poll(ms_ptr_t ctx, ms_io_file_t *file, ms_pollfd_t
     ms_io_device_t *dev = MS_IO_FILE_TO_DEV(file);
     ms_net_socket_device_t *sock_dev = MS_CONTAINER_OF(dev, ms_net_socket_device_t, dev);
 
-    return ms_io_poll_heaper(fds, sock_dev->slots, MS_ARRAY_SIZE(sock_dev->slots), setup, ctx,
+    return ms_io_poll_helper(fds, sock_dev->slots, MS_ARRAY_SIZE(sock_dev->slots), setup, ctx,
                              __ms_esp_at_socket_readable_check,
                              __ms_esp_at_socket_writable_check,
                              __ms_esp_at_socket_except_check);
