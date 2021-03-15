@@ -35,6 +35,10 @@
 #include "esp/esp_pbuf.h"
 #include "esp/esp_mem.h"
 
+#ifdef __MS_RTOS__
+#define pbuf_skip __pbuf_skip
+#endif
+
 /* Set size of pbuf structure */
 #define SIZEOF_PBUF_STRUCT          ESP_MEM_ALIGN(sizeof(esp_pbuf_t))
 #define SET_NEW_LEN(v, len)         do { if ((v) != NULL) { *(v) = (len); } } while (0)

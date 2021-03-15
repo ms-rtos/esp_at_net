@@ -170,6 +170,11 @@ netconn_evt(esp_evt_t* evt) {
                         || !esp_sys_mbox_putnow(&listen_api->mbox_accept, nc)) {
                         close = 1;
                     }
+#ifdef __MS_RTOS__
+                    else {
+                        ms_esp_at_socket_poll_notify(listen_api->ctx, POLLIN);
+                    }
+#endif
                 } else {
                     close = 1;
                 }
@@ -225,6 +230,9 @@ netconn_evt(esp_evt_t* evt) {
             ESP_DEBUGF(ESP_CFG_DBG_NETCONN | ESP_DBG_TYPE_TRACE,
                 "[NETCONN] Received pbuf contains %d bytes. Handle written to receive mbox\r\n",
                 (int)esp_pbuf_length(pbuf, 0));
+#ifdef __MS_RTOS__
+            ms_esp_at_socket_poll_notify(nc->ctx, POLLIN);
+#endif
             break;
         }
 
@@ -239,6 +247,9 @@ netconn_evt(esp_evt_t* evt) {
             if (nc != NULL && esp_sys_mbox_isvalid(&nc->mbox_receive)) {
                 if (esp_sys_mbox_putnow(&nc->mbox_receive, (void *)&recv_closed)) {
                     ++nc->mbox_receive_entries;
+#ifdef __MS_RTOS__
+                    ms_esp_at_socket_poll_notify(nc->ctx, POLLIN);
+#endif
                 }
             }
 
@@ -261,12 +272,18 @@ esp_evt(esp_evt_t* evt) {
         case ESP_EVT_WIFI_DISCONNECTED: {       /* Wifi disconnected event */
             if (listen_api != NULL) {           /* Check if listen API active */
                 esp_sys_mbox_putnow(&listen_api->mbox_accept, &recv_closed);
+#ifdef __MS_RTOS__
+                ms_esp_at_socket_poll_notify(listen_api->ctx, POLLIN);
+#endif
             }
             break;
         }
         case ESP_EVT_DEVICE_PRESENT: {          /* Device present event */
             if (listen_api != NULL && !esp_device_is_present()) {   /* Check if device present */
                 esp_sys_mbox_putnow(&listen_api->mbox_accept, &recv_not_present);
+#ifdef __MS_RTOS__
+                ms_esp_at_socket_poll_notify(listen_api->ctx, POLLIN);
+#endif
             }
         }
         default: break;

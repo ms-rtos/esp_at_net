@@ -61,7 +61,7 @@ esp_sys_mutex_unlock(esp_sys_mutex_t* p) {
 
 uint8_t
 esp_sys_mutex_isvalid(esp_sys_mutex_t* p) {
-    return p != MS_NULL && *p != MS_HANDLE_INVALID;
+    return p != MS_NULL && *p != ESP_SYS_MUTEX_NULL;
 }
 
 uint8_t
@@ -94,7 +94,7 @@ esp_sys_sem_release(esp_sys_sem_t* p) {
 
 uint8_t
 esp_sys_sem_isvalid(esp_sys_sem_t* p) {
-    return p != MS_NULL && *p != MS_HANDLE_INVALID;
+    return p != MS_NULL && *p != ESP_SYS_SEM_NULL;
 }
 
 uint8_t
@@ -109,7 +109,7 @@ esp_sys_mbox_create(esp_sys_mbox_t* b, size_t size) {
     uint8_t ret = 0;
 
     if (msg_buf != MS_NULL) {
-        if (ms_mqueue_create("esp_mq", msg_buf, size, sizeof(void *),
+        if (ms_mqueue_create("esp_at_mq", msg_buf, size, sizeof(void *),
                              MS_WAIT_TYPE_PRIO, b) != MS_ERR_NONE) {
             ms_kfree(msg_buf);
         } else {

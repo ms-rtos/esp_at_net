@@ -29,6 +29,8 @@
 
 #define ESP_CFG_DNS                         1
 
+#define ESP_CFG_PING                        1
+
 #define ESP_MEMCPY(dst, src, len)           ms_arch_memcpy(dst, src, len)
 
 /* Include default configuration setup */

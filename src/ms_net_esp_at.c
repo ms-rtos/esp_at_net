@@ -1030,6 +1030,25 @@ static int __ms_esp_at_setdnsserver(ms_uint8_t numdns, const ip_addr_t *dnsserve
     return ret;
 }
 
+/*
+ * Ping host name
+ */
+static int __ms_esp_at_ping(const char *hostname, ms_uint32_t *time)
+{
+    int ret;
+    espr_t err;
+
+    err = esp_ping(hostname, (uint32_t *)time, MS_NULL, MS_NULL, 1);
+    if (err == espOK) {
+        ret = 0;
+    } else {
+        ms_thread_set_errno(__ms_esp_at_err_to_errno(err));
+        ret = -1;
+    }
+
+    return ret;
+}
+
 static ms_net_impl_ops_t ms_esp_at_net_impl_ops = {
         .sock_drv_name          = MS_ESP_AT_SOCKET_DRV_NAME,
         .socket                 = (ms_net_socket_func_t)__ms_esp_at_socket,
@@ -1055,6 +1074,7 @@ static ms_net_impl_ops_t ms_esp_at_net_impl_ops = {
         .sethostname            = (ms_net_sethostname_func_t)__ms_esp_at_sethostname,
         .getdnsserver           = (ms_net_getdnsserver_func_t)__ms_esp_at_getdnsserver,
         .setdnsserver           = (ms_net_setdnsserver_func_t)__ms_esp_at_setdnsserver,
+        .ping                   = (ms_net_ping_func_t)__ms_esp_at_ping,
 };
 
 static ms_net_impl_t ms_esp_at_net_impl = {
@@ -1077,11 +1097,11 @@ static espr_t __ms_esp_at_callback_func(esp_evt_t *evt)
     }
 
     case ESP_EVT_INIT_FINISH:
-        ms_printk(MS_PK_INFO, "ESP8266: library initialized!\n");
+        ms_printk(MS_PK_INFO, "ESP8266: Library initialized!\n");
         break;
 
     case ESP_EVT_RESET_DETECTED:
-        ms_printk(MS_PK_INFO, "ESP8266: reset detected!\n");
+        ms_printk(MS_PK_INFO, "ESP8266: Reset detected!\n");
         break;
 
     case ESP_EVT_WIFI_DISCONNECTED:
@@ -1331,14 +1351,14 @@ ms_err_t ms_esp_at_net_init(void (*init_done_callback)(ms_ptr_t arg), ms_ptr_t a
             /*
              * Initialize ESP with default callback function
              */
-            ms_printk(MS_PK_INFO, "ESP8266: Initializing ESP-AT Lib\n");
+            ms_printk(MS_PK_INFO, "ESP8266: Initializing ESP-AT library\n");
 
             if (esp_init(__ms_esp_at_callback_func, MS_TRUE) != espOK) {
-                ms_printk(MS_PK_ERR, "ESP8266: Cannot initialize ESP-AT Lib!\n");
+                ms_printk(MS_PK_ERR, "ESP8266: Cannot initialize ESP-AT library!\n");
                 err = MS_ERR;
 
             } else {
-                ms_printk(MS_PK_INFO, "ESP8266: ESP-AT Lib initialized!\n");
+                ms_printk(MS_PK_INFO, "ESP8266: ESP-AT library initialized!\n");
 
                 esp_sta_getmac(MS_NULL, MS_NULL, MS_NULL, MS_TRUE);
 

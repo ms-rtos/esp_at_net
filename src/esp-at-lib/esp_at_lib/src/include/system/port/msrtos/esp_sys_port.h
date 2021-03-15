@@ -51,7 +51,7 @@ extern "C" {
 #if ESP_CFG_OS || __DOXYGEN__
 
 /* Include any OS specific features */
-#include "ms_kern.h"
+#include "ms_rtos.h"
 
 /**
  * \brief           System mutex type
@@ -130,6 +130,8 @@ typedef ms_prio_t          esp_sys_thread_prio_t;
  * It is used as default stack size for all built-in threads.
  */
 #define ESP_SYS_THREAD_SS           (1024U)
+
+int ms_esp_at_socket_poll_notify(ms_ptr_t ctx, ms_pollevent_t event);
 
 #endif /* ESP_CFG_OS || __DOXYGEN__ */
 

@@ -37,6 +37,13 @@
 
 #if !ESP_CFG_MEM_CUSTOM || __DOXYGEN__
 
+#ifdef __MS_RTOS__
+#define mem_alloc   __mem_alloc
+#define mem_free    __mem_free
+#define mem_calloc  __mem_calloc
+#define mem_realloc __mem_realloc
+#endif
+
 #if !__DOXYGEN__
 typedef struct mem_block {
     struct mem_block* next;                     /*!< Pointer to next free block */
