@@ -13,7 +13,9 @@
 #ifndef MS_NET_ESP_AT_CFG_H
 #define MS_NET_ESP_AT_CFG_H
 
-/* User specific config */
+/*
+ * User specific config
+ */
 #define ESP_CFG_AT_ECHO                     1
 #define ESP_CFG_INPUT_USE_PROCESS           1
 
@@ -33,7 +35,19 @@
 
 #define ESP_MEMCPY(dst, src, len)           ms_arch_memcpy(dst, src, len)
 
-/* Include default configuration setup */
+/*
+ * NOTIC: Different versions of ESP AT firmware use different AT commands,
+ * Please select ESP_CFG_AT_VERSION according to the AT command version of your ESP8266 module.
+ *
+ * See more from: https://docs.espressif.com/projects/esp-at/zh_CN/latest/AT_Command_Set/AT_Command_Set_Comparison.html
+ */
+#define ESP_CFG_ESP_AT                      0
+#define ESP_CFG_NONOS_AT                    1
+#define ESP_CFG_AT_VERSION                  ESP_CFG_NONOS_AT
+
+/*
+ * Include default configuration setup
+ */
 #include "esp/esp_config_default.h"
 
 #endif /* MS_NET_ESP_AT_CFG_H */

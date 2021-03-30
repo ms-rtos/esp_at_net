@@ -534,7 +534,7 @@ static char *__ms_esp_at_if_indextoname(unsigned int ifindex, char *ifname)
 
 static unsigned int __ms_esp_at_if_nametoindex(const char *ifname)
 {
-    return 0U;
+    return 1U;
 }
 
 /*

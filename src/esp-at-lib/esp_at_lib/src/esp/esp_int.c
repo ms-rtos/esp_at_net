@@ -587,10 +587,18 @@ espi_parse_received(esp_recv_t* rcv) {
         } else if (esp.msg != NULL) {
             if (0
 #if ESP_CFG_MODE_STATION
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
                 || (CMD_IS_CUR(ESP_CMD_WIFI_CIPSTAMAC_GET) && !strncmp(rcv->data, "+CIPSTAMAC", 10))
+#else
+                || (CMD_IS_CUR(ESP_CMD_WIFI_CIPSTAMAC_GET) && !strncmp(rcv->data, "+CIPSTAMAC_DEF", 10))
+#endif
 #endif /* ESP_CFG_MODE_STATION */
 #if ESP_CFG_MODE_ACCESS_POINT
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
                 || (CMD_IS_CUR(ESP_CMD_WIFI_CIPAPMAC_GET) && !strncmp(rcv->data, "+CIPAPMAC", 9))
+#else
+                || (CMD_IS_CUR(ESP_CMD_WIFI_CIPAPMAC_GET) && !strncmp(rcv->data, "+CIPAPMAC_DEF", 9))
+#endif
 #endif /* ESP_CFG_MODE_ACCESS_POINT */
             ) {
                 const char* tmp;
@@ -618,10 +626,18 @@ espi_parse_received(esp_recv_t* rcv) {
                 }
             } else if (0
 #if ESP_CFG_MODE_STATION
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
                 || (CMD_IS_CUR(ESP_CMD_WIFI_CIPSTA_GET) && !strncmp(rcv->data, "+CIPSTA", 7))
+#else
+                || (CMD_IS_CUR(ESP_CMD_WIFI_CIPSTA_GET) && !strncmp(rcv->data, "+CIPSTA_DEF", 7))
+#endif
 #endif /* ESP_CFG_MODE_STATION */
 #if ESP_CFG_MODE_ACCESS_POINT
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
                 || (CMD_IS_CUR(ESP_CMD_WIFI_CIPAP_GET) && !strncmp(rcv->data, "+CIPAP", 6))
+#else
+                || (CMD_IS_CUR(ESP_CMD_WIFI_CIPAP_GET) && !strncmp(rcv->data, "+CIPAP_DEF", 6))
+#endif
 #endif /* ESP_CFG_MODE_ACCESS_POINT */
             ) {
                 const char* tmp = NULL;
@@ -667,22 +683,39 @@ espi_parse_received(esp_recv_t* rcv) {
 #if ESP_CFG_MODE_STATION
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWLAP) && !strncmp(rcv->data, "+CWLAP", 6)) {
                 espi_parse_cwlap(rcv->data, esp.msg);   /* Parse CWLAP entry */
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP) && !strncmp(rcv->data, "+CWJAP", 6)) {
+#else
+            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP) && !strncmp(rcv->data, "+CWJAP_DEF", 6)) {
+#endif
                 const char* tmp = &rcv->data[7];/* Go to the number position */
                 esp.msg->msg.sta_join.error_num = (uint8_t)espi_parse_number(&tmp);
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP_GET) && !strncmp(rcv->data, "+CWJAP", 6)) {
+#else
+            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP_GET) && !strncmp(rcv->data, "+CWJAP_DEF", 6)) {
+#endif
                 espi_parse_cwjap(rcv->data, esp.msg);/* Parse CWJAP */
 #endif /* ESP_CFG_MODE_STATION */
 #if ESP_CFG_MODE_ACCESS_POINT
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWLIF) && !strncmp(rcv->data, "+CWLIF", 6)) {
                 espi_parse_cwlif(rcv->data, esp.msg);   /* Parse CWLIF entry */
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWSAP_GET) && !strncmp(rcv->data, "+CWSAP", 6)) {
+#else
+            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWSAP_GET) && !strncmp(rcv->data, "+CWSAP_DEF", 6)) {
+#endif
                 espi_parse_cwsap(rcv->data, esp.msg);
 #endif /* ESP_CFG_MODE_ACCESS_POINT */
 #if ESP_CFG_DNS
             } else if (CMD_IS_CUR(ESP_CMD_TCPIP_CIPDOMAIN) && !strncmp(rcv->data, "+CIPDOMAIN", 10)) {
                 espi_parse_cipdomain(rcv->data, esp.msg);   /* Parse CIPDOMAIN entry */
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_TCPIP_CIPDNS_GET) && !strncmp(rcv->data, "+CIPDNS", 7)) {
+#else
+            } else if (CMD_IS_CUR(ESP_CMD_TCPIP_CIPDNS_GET) && !strncmp(rcv->data, "+CIPDNS_DEF", 7)) {
+#endif
+
                 const char* tmp = &rcv->data[8];/* Go to the ip position */
                 esp_ip_t ip;
                 uint8_t index = espi_parse_number(&tmp);
@@ -707,9 +740,17 @@ espi_parse_received(esp_recv_t* rcv) {
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWHOSTNAME_GET) && !strncmp(rcv->data, "+CWHOSTNAME", 11)) {
                 espi_parse_hostname(rcv->data, esp.msg);/* Parse HOSTNAME entry */
 #endif /* ESP_CFG_HOSTNAME */
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWDHCP_GET) && !strncmp(rcv->data, "+CWDHCP", 7)) {
+#else
+            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWDHCP_GET) && !strncmp(rcv->data, "+CWDHCP_DEF", 7)) {
+#endif
                 espi_parse_cwdhcp(rcv->data);   /* Parse CWDHCP state */
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWMODE_GET) && !strncmp(rcv->data, "+CWMODE", 7)) {
+#else
+            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWMODE_GET) && !strncmp(rcv->data, "+CWMODE_DEF", 7)) {
+#endif
                 const char* tmp = &rcv->data[8];/* Go to the number position */
                 *esp.msg->msg.wifi_mode.mode_get = (uint8_t)espi_parse_number(&tmp);
             }
@@ -1657,7 +1698,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_SYSMSG: {                  /* Enable system messages */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+SYSMSG=3");
+#else
+            AT_PORT_SEND_CONST_STR("+SYSMSG_DEF=3");
+#endif
             AT_PORT_SEND_END_AT();
             break;
         }
@@ -1687,7 +1732,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
 #if ESP_CFG_MODE_STATION
         case ESP_CMD_WIFI_CWJAP: {              /* Try to join to access point */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
+            AT_PORT_SEND_CONST_STR("+CWJAP=");
+#else
             AT_PORT_SEND_CONST_STR("+CWJAP_DEF=");
+#endif
             espi_send_string(msg->msg.sta_join.name, 1, 1, 0);
             espi_send_string(msg->msg.sta_join.pass, 1, 1, 1);
             if (msg->msg.sta_join.mac != NULL) {
@@ -1698,7 +1747,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_WIFI_CWJAP_GET: {          /* Get the info of the connected access point */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWJAP?");
+#else
+            AT_PORT_SEND_CONST_STR("+CWJAP_DEF?");
+#endif
             AT_PORT_SEND_END_AT();
             break;
         }
@@ -1749,14 +1802,22 @@ espi_initiate_cmd(esp_msg_t* msg) {
             }
 
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWMODE=");
+#else
+            AT_PORT_SEND_CONST_STR("+CWMODE_DEF=");
+#endif
             espi_send_number(ESP_U32(m), 0, 0);
             AT_PORT_SEND_END_AT();
             break;
         }
         case ESP_CMD_WIFI_CWMODE_GET: {         /* Get WIFI mode */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWMODE?");
+#else
+            AT_PORT_SEND_CONST_STR("+CWMODE_DEF?");
+#endif
             AT_PORT_SEND_END_AT();
             break;
         }
@@ -1862,7 +1923,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_WIFI_CWDHCP_GET: {
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWDHCP?");
+#else
+            AT_PORT_SEND_CONST_STR("+CWDHCP_DEF?");
+#endif
             AT_PORT_SEND_END_AT();
             break;
         }
@@ -1874,7 +1939,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
             num |= (msg->msg.wifi_cwdhcp.ap > 0 ? 0x02 : 0x00);
 
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWDHCP=");
+#else
+            AT_PORT_SEND_CONST_STR("+CWDHCP_DEF=");
+#endif
             espi_send_number(ESP_U32(msg->msg.wifi_cwdhcp.en > 0), 0, 0);
             espi_send_number(num, 0, 1);
             AT_PORT_SEND_END_AT();
@@ -1884,7 +1953,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
 #if ESP_CFG_MODE_ACCESS_POINT
         case ESP_CMD_WIFI_CWSAP_SET: {          /* Set soft-access point parameters */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWSAP=");
+#else
+            AT_PORT_SEND_CONST_STR("+CWSAP_DEF=");
+#endif
             espi_send_string(msg->msg.ap_conf.ssid, 1, 1, 0);
             espi_send_string(msg->msg.ap_conf.pwd, 1, 1, 1);
             espi_send_number(ESP_U32(msg->msg.ap_conf.ch), 0, 1);
@@ -1896,7 +1969,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_WIFI_CWSAP_GET: {
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWSAP?");
+#else
+            AT_PORT_SEND_CONST_STR("+CWSAP_DEF?");
+#endif
             AT_PORT_SEND_END_AT();
             break;
         }
@@ -2144,7 +2221,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_TCPIP_CIPDNS_SET: {        /* DNS set config */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CIPDNS=");
+#else
+            AT_PORT_SEND_CONST_STR("+CIPDNS_DEF=");
+#endif
             espi_send_number(ESP_U32(!!msg->msg.dns_setconfig.en), 0, 0);
             if (msg->msg.dns_setconfig.en) {
                 if (msg->msg.dns_setconfig.s1 != NULL) {
@@ -2159,7 +2240,11 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_TCPIP_CIPDNS_GET: {        /* DNS get config */
             AT_PORT_SEND_BEGIN_AT();
+#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CIPDNS?");
+#else
+            AT_PORT_SEND_CONST_STR("+CIPDNS_DEF?");
+#endif
             AT_PORT_SEND_END_AT();
             break;
         }
