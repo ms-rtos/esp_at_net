@@ -683,18 +683,10 @@ espi_parse_received(esp_recv_t* rcv) {
 #if ESP_CFG_MODE_STATION
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWLAP) && !strncmp(rcv->data, "+CWLAP", 6)) {
                 espi_parse_cwlap(rcv->data, esp.msg);   /* Parse CWLAP entry */
-#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP) && !strncmp(rcv->data, "+CWJAP", 6)) {
-#else
-            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP) && !strncmp(rcv->data, "+CWJAP_DEF", 6)) {
-#endif
                 const char* tmp = &rcv->data[7];/* Go to the number position */
                 esp.msg->msg.sta_join.error_num = (uint8_t)espi_parse_number(&tmp);
-#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP_GET) && !strncmp(rcv->data, "+CWJAP", 6)) {
-#else
-            } else if (CMD_IS_CUR(ESP_CMD_WIFI_CWJAP_GET) && !strncmp(rcv->data, "+CWJAP_DEF", 6)) {
-#endif
                 espi_parse_cwjap(rcv->data, esp.msg);/* Parse CWJAP */
 #endif /* ESP_CFG_MODE_STATION */
 #if ESP_CFG_MODE_ACCESS_POINT
@@ -1698,11 +1690,7 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_SYSMSG: {                  /* Enable system messages */
             AT_PORT_SEND_BEGIN_AT();
-#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+SYSMSG=3");
-#else
-            AT_PORT_SEND_CONST_STR("+SYSMSG_DEF=3");
-#endif
             AT_PORT_SEND_END_AT();
             break;
         }
@@ -1732,11 +1720,7 @@ espi_initiate_cmd(esp_msg_t* msg) {
 #if ESP_CFG_MODE_STATION
         case ESP_CMD_WIFI_CWJAP: {              /* Try to join to access point */
             AT_PORT_SEND_BEGIN_AT();
-#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWJAP=");
-#else
-            AT_PORT_SEND_CONST_STR("+CWJAP_DEF=");
-#endif
             espi_send_string(msg->msg.sta_join.name, 1, 1, 0);
             espi_send_string(msg->msg.sta_join.pass, 1, 1, 1);
             if (msg->msg.sta_join.mac != NULL) {
@@ -1747,11 +1731,7 @@ espi_initiate_cmd(esp_msg_t* msg) {
         }
         case ESP_CMD_WIFI_CWJAP_GET: {          /* Get the info of the connected access point */
             AT_PORT_SEND_BEGIN_AT();
-#if (ESP_CFG_AT_VERSION == ESP_CFG_ESP_AT)
             AT_PORT_SEND_CONST_STR("+CWJAP?");
-#else
-            AT_PORT_SEND_CONST_STR("+CWJAP_DEF?");
-#endif
             AT_PORT_SEND_END_AT();
             break;
         }

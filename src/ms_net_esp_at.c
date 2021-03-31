@@ -346,6 +346,9 @@ static ssize_t __ms_esp_at_netconn_send(esp_netconn_p conn, const void *dataptr,
     case ESP_NETCONN_TYPE_TCP:
     case ESP_NETCONN_TYPE_SSL:
         err = esp_netconn_write(conn, dataptr, size);
+        if (err == espOK) {
+            err = esp_netconn_flush(conn);
+        }
         break;
 
     case ESP_NETCONN_TYPE_UDP:
@@ -479,6 +482,9 @@ static ssize_t __ms_esp_at_sendto(esp_netconn_p conn, const void *dataptr, size_
         case ESP_NETCONN_TYPE_TCP:
         case ESP_NETCONN_TYPE_SSL:
             err = esp_netconn_write(conn, dataptr, size);
+            if (err == espOK) {
+                err = esp_netconn_flush(conn);
+            }
             break;
 
         case ESP_NETCONN_TYPE_UDP: {
