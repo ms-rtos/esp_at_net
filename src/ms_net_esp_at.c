@@ -140,7 +140,7 @@ static void __ms_esp_at_udp_ensure_bind(esp_netconn_p conn)
     }
 }
 
-static int __ms_esp_at_bind(esp_netconn_p conn, const struct sockaddr *name, socklen_t namelen)
+static int __ms_esp_at_bind(esp_netconn_p conn, const struct sockaddr *name, socklen_t namelen, ms_io_file_t *file)
 {
     int ret = -1;
 
@@ -175,7 +175,7 @@ static int __ms_esp_at_bind(esp_netconn_p conn, const struct sockaddr *name, soc
     return ret;
 }
 
-static int __ms_esp_at_getpeername(esp_netconn_p conn, struct sockaddr *name, socklen_t *namelen)
+static int __ms_esp_at_getpeername(esp_netconn_p conn, struct sockaddr *name, socklen_t *namelen, ms_io_file_t *file)
 {
     int ret = -1;
 
@@ -212,7 +212,7 @@ static int __ms_esp_at_getpeername(esp_netconn_p conn, struct sockaddr *name, so
     return ret;
 }
 
-static int __ms_esp_at_getsockname(esp_netconn_p conn, struct sockaddr *name, socklen_t *namelen)
+static int __ms_esp_at_getsockname(esp_netconn_p conn, struct sockaddr *name, socklen_t *namelen, ms_io_file_t *file)
 {
     int ret = -1;
 
@@ -243,7 +243,23 @@ static int __ms_esp_at_getsockname(esp_netconn_p conn, struct sockaddr *name, so
     return ret;
 }
 
-static int __ms_esp_at_getsockopt(esp_netconn_p conn, int level, int optname, void *optval, socklen_t *optlen)
+static int __ms_esp_at_getsockopt(esp_netconn_p conn, int level, int optname, void *optval, socklen_t *optlen, ms_io_file_t *file)
+{
+    if ((level == SOL_SOCKET) && (optname == SO_ERROR)) {
+        *(int *)optval = esp_msrtos_netconn_except_check(conn);
+        *optlen = sizeof(int);
+        return 0;
+
+    } else {
+        /*
+         * TODO
+         */
+        ms_thread_set_errno(ENOTSUP);
+        return -1;
+    }
+}
+
+static int __ms_esp_at_setsockopt(esp_netconn_p conn, int level, int optname, const void *optval, socklen_t optlen, ms_io_file_t *file)
 {
     /*
      * TODO
@@ -252,16 +268,7 @@ static int __ms_esp_at_getsockopt(esp_netconn_p conn, int level, int optname, vo
     return -1;
 }
 
-static int __ms_esp_at_setsockopt(esp_netconn_p conn, int level, int optname, const void *optval, socklen_t optlen)
-{
-    /*
-     * TODO
-     */
-    ms_thread_set_errno(ENOTSUP);
-    return -1;
-}
-
-static int __ms_esp_at_connect(esp_netconn_p conn, const struct sockaddr *name, socklen_t namelen)
+static int __ms_esp_at_connect(esp_netconn_p conn, const struct sockaddr *name, socklen_t namelen, ms_io_file_t *file)
 {
     int ret = -1;
 
@@ -299,7 +306,7 @@ static int __ms_esp_at_connect(esp_netconn_p conn, const struct sockaddr *name, 
     return ret;
 }
 
-static int __ms_esp_at_listen(esp_netconn_p conn, int backlog)
+static int __ms_esp_at_listen(esp_netconn_p conn, int backlog, ms_io_file_t *file)
 {
     int ret = -1;
 
@@ -327,7 +334,7 @@ static int __ms_esp_at_listen(esp_netconn_p conn, int backlog)
     return ret;
 }
 
-static int __ms_esp_at_shutdown(esp_netconn_p conn, int how)
+static int __ms_esp_at_shutdown(esp_netconn_p conn, int how, ms_io_file_t *file)
 {
     /*
      * TODO
@@ -337,10 +344,17 @@ static int __ms_esp_at_shutdown(esp_netconn_p conn, int how)
     return -1;
 }
 
-static ssize_t __ms_esp_at_netconn_send(esp_netconn_p conn, const void *dataptr, size_t size, int flags)
+static ssize_t __ms_esp_at_netconn_send(esp_netconn_p conn, const void *dataptr, size_t size, int flags, ms_io_file_t *file)
 {
     espr_t err;
     ssize_t ret;
+
+    if (file->flags & O_NONBLOCK) {
+        if (!esp_msrtos_netconn_writable_check(conn)) {
+            ms_thread_set_errno(EWOULDBLOCK);
+            return -1;
+        }
+    }
 
     switch (conn->type) {
     case ESP_NETCONN_TYPE_TCP:
@@ -370,13 +384,20 @@ static ssize_t __ms_esp_at_netconn_send(esp_netconn_p conn, const void *dataptr,
     return ret;
 }
 
-static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t size, int flags, struct sockaddr *from, socklen_t *fromlen)
+static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t size, int flags, struct sockaddr *from, socklen_t *fromlen, ms_io_file_t *file)
 {
     esp_pbuf_p pbuf;
     espr_t err;
     ssize_t ret;
 
     __ms_esp_at_udp_ensure_bind(conn);
+
+    if (file->flags & O_NONBLOCK) {
+        if (!esp_msrtos_netconn_readable_check(conn)) {
+            ms_thread_set_errno(EWOULDBLOCK);
+            return -1;
+        }
+    }
 
     err = esp_netconn_receive(conn, &pbuf);
     if (err == espOK) {
@@ -406,12 +427,12 @@ static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t si
     return ret;
 }
 
-static ssize_t __ms_esp_at_recv(esp_netconn_p conn, void *mem, size_t len, int flags)
+static ssize_t __ms_esp_at_recv(esp_netconn_p conn, void *mem, size_t len, int flags, ms_io_file_t *file)
 {
     ssize_t ret;
 
     if (conn != MS_NULL) {
-        ret = __ms_esp_at_netconn_recv(conn, mem, len, flags, MS_NULL, MS_NULL);
+        ret = __ms_esp_at_netconn_recv(conn, mem, len, flags, MS_NULL, MS_NULL, file);
 
     } else {
         ms_thread_set_errno(EBADF);
@@ -422,12 +443,12 @@ static ssize_t __ms_esp_at_recv(esp_netconn_p conn, void *mem, size_t len, int f
 }
 
 static ssize_t __ms_esp_at_recvfrom(esp_netconn_p conn, void *mem, size_t len, int flags,
-                                    struct sockaddr *from, socklen_t *fromlen)
+                                    struct sockaddr *from, socklen_t *fromlen, ms_io_file_t *file)
 {
     ssize_t ret;
 
     if (conn != MS_NULL) {
-        ret = __ms_esp_at_netconn_recv(conn, mem, len, flags, from, fromlen);
+        ret = __ms_esp_at_netconn_recv(conn, mem, len, flags, from, fromlen, file);
 
     } else {
         ms_thread_set_errno(EBADF);
@@ -437,7 +458,7 @@ static ssize_t __ms_esp_at_recvfrom(esp_netconn_p conn, void *mem, size_t len, i
     return ret;
 }
 
-static ssize_t __ms_esp_at_recvmsg(esp_netconn_p conn, struct msghdr *message, int flags)
+static ssize_t __ms_esp_at_recvmsg(esp_netconn_p conn, struct msghdr *message, int flags, ms_io_file_t *file)
 {
     /*
      * TODO
@@ -446,7 +467,7 @@ static ssize_t __ms_esp_at_recvmsg(esp_netconn_p conn, struct msghdr *message, i
     return -1;
 }
 
-static ssize_t __ms_esp_at_sendmsg(esp_netconn_p conn, const struct msghdr *message, int flags)
+static ssize_t __ms_esp_at_sendmsg(esp_netconn_p conn, const struct msghdr *message, int flags, ms_io_file_t *file)
 {
     /*
      * TODO
@@ -455,12 +476,12 @@ static ssize_t __ms_esp_at_sendmsg(esp_netconn_p conn, const struct msghdr *mess
     return -1;
 }
 
-static ssize_t __ms_esp_at_send(esp_netconn_p conn, const void *dataptr, size_t size, int flags)
+static ssize_t __ms_esp_at_send(esp_netconn_p conn, const void *dataptr, size_t size, int flags, ms_io_file_t *file)
 {
     ssize_t ret;
 
     if (conn != MS_NULL) {
-        ret = __ms_esp_at_netconn_send(conn, dataptr, size, flags);
+        ret = __ms_esp_at_netconn_send(conn, dataptr, size, flags, file);
 
     } else {
         ms_thread_set_errno(EBADF);
@@ -471,7 +492,7 @@ static ssize_t __ms_esp_at_send(esp_netconn_p conn, const void *dataptr, size_t 
 }
 
 static ssize_t __ms_esp_at_sendto(esp_netconn_p conn, const void *dataptr, size_t size, int flags,
-                                  const struct sockaddr *to, socklen_t tolen)
+                                  const struct sockaddr *to, socklen_t tolen, ms_io_file_t *file)
 {
     ssize_t ret = -1;
 
@@ -602,7 +623,7 @@ static int __ms_esp_at_socket_close(ms_ptr_t ctx, ms_io_file_t *file)
  */
 static ssize_t __ms_esp_at_socket_read(ms_ptr_t ctx, ms_io_file_t *file, ms_ptr_t buf, size_t len)
 {
-    return __ms_esp_at_netconn_recv((esp_netconn_p)ctx, buf, len, 0, MS_NULL, MS_NULL);
+    return __ms_esp_at_netconn_recv((esp_netconn_p)ctx, buf, len, 0, MS_NULL, MS_NULL, file);
 }
 
 /*
@@ -610,7 +631,7 @@ static ssize_t __ms_esp_at_socket_read(ms_ptr_t ctx, ms_io_file_t *file, ms_ptr_
  */
 static ssize_t __ms_esp_at_socket_write(ms_ptr_t ctx, ms_io_file_t *file, ms_const_ptr_t buf, size_t len)
 {
-    return __ms_esp_at_netconn_send((esp_netconn_p)ctx, buf, len, 0);;
+    return __ms_esp_at_netconn_send((esp_netconn_p)ctx, buf, len, 0, file);
 }
 
 /*
@@ -882,7 +903,7 @@ static int __ms_esp_at_socket(int domain, int type, int protocol)
     return fd;
 }
 
-static int __ms_esp_at_accept(esp_netconn_p conn, ms_io_file_t *file, struct sockaddr *addr, socklen_t *addrlen)
+static int __ms_esp_at_accept(esp_netconn_p conn, struct sockaddr *addr, socklen_t *addrlen, ms_io_file_t *file)
 {
     int accept_fd = -1;
 
