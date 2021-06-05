@@ -86,6 +86,9 @@ esp_pbuf_new(size_t len) {
         p->len = len;                           /* Set payload length */
         p->payload = (void *)(((char *)p) + SIZEOF_PBUF_STRUCT);/* Set pointer to payload data */
         p->ref = 1;                             /* Single reference is used on this pbuf */
+#ifdef __MS_RTOS__
+        p->cur_pos = 0;
+#endif
     }
     return p;
 }

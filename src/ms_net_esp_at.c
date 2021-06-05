@@ -261,11 +261,22 @@ static int __ms_esp_at_getsockopt(esp_netconn_p conn, int level, int optname, vo
 
 static int __ms_esp_at_setsockopt(esp_netconn_p conn, int level, int optname, const void *optval, socklen_t optlen, ms_io_file_t *file)
 {
-    /*
-     * TODO
-     */
-    ms_thread_set_errno(ENOTSUP);
-    return -1;
+    if ((level == SOL_SOCKET) && (optname == SO_RCVTIMEO)) {
+        if (optlen == sizeof(struct timeval)) {
+            const struct timeval *tv = (const struct timeval *)optval;
+            esp_netconn_set_receive_timeout(conn, tv->tv_sec * 1000 + tv->tv_usec / 1000);
+            return 0;
+        } else {
+            ms_thread_set_errno(EINVAL);
+            return -1;
+        }
+    } else {
+        /*
+         * TODO
+         */
+        ms_thread_set_errno(ENOTSUP);
+        return -1;
+    }
 }
 
 static int __ms_esp_at_connect(esp_netconn_p conn, const struct sockaddr *name, socklen_t namelen, ms_io_file_t *file)
@@ -401,7 +412,7 @@ static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t si
 
     err = esp_netconn_receive(conn, &pbuf);
     if (err == espOK) {
-        ret = esp_pbuf_copy(pbuf, buf, size, 0);
+        ret = esp_pbuf_copy(pbuf, buf, size, pbuf->cur_pos);
 
         if ((from != MS_NULL) && (fromlen != MS_NULL)) {
             union sockaddr_aligned saddr;
@@ -417,7 +428,21 @@ static ssize_t __ms_esp_at_netconn_recv(esp_netconn_p conn, void *buf, size_t si
             ESP_MEMCPY(from, &saddr, *fromlen);
         }
 
-        esp_pbuf_free(pbuf);
+        pbuf->cur_pos += ret;
+        if (pbuf->cur_pos >= pbuf->tot_len) {
+            esp_pbuf_free(pbuf);
+        } else {
+            if (ms_mqueue_trypost_front(conn->mbox_receive, &pbuf) == MS_ERR_NONE) {
+                esp_core_lock();
+                conn->mbox_receive_entries++;
+                esp_core_unlock();
+            } else {
+                esp_pbuf_free(pbuf);
+            }
+        }
+
+    } else if (err == espTIMEOUT) {
+        ret = 0;
 
     } else {
         ms_thread_set_errno(__ms_esp_at_err_to_errno(err));

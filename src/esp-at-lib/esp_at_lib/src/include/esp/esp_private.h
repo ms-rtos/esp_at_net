@@ -208,6 +208,9 @@ typedef struct esp_pbuf {
     uint8_t* payload;                           /*!< Pointer to payload memory */
     esp_ip_t ip;                                /*!< Remote address for received IPD data */
     esp_port_t port;                            /*!< Remote port for received IPD data */
+#ifdef __MS_RTOS__
+    size_t cur_pos;
+#endif
 } esp_pbuf_t;
 
 /**
